@@ -7,15 +7,15 @@ use crate::readable::Readable;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let reader = match args.len() {
+    let readable_result = match args.len() {
         1 => Result::Ok(Readable::from_stdin()),
         2 => Readable::from_file_name(&args[1]),
         _ => print_usage_and_exit(&args, 1),
     };
 
-    match reader {
-        Ok(reader) => {
-            copy_lines_to_stdout(BufReader::new(reader));
+    match readable_result {
+        Ok(readable) => {
+            copy_lines_to_stdout(BufReader::new(readable));
         }
         Err(error) => {
             print_error_and_exit(error, 2);
