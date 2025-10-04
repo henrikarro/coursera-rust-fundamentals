@@ -16,6 +16,19 @@ impl SizeUnit {
             _ => None,
         }
     }
+
+    fn multiplier(&self) -> f64 {
+        match self {
+            SizeUnit::Bytes => 1.0,
+            SizeUnit::Kilobytes => 1024.0,
+            SizeUnit::Megabytes => 1_048_576.0,
+            SizeUnit::Gigabytes => 1_073_741_824.0,
+        }
+    }
+
+    fn to_bytes(&self, size: f64) -> u64 {
+        (size * self.multiplier()) as u64
+    }
 }
 
 #[derive(Debug)]
@@ -36,23 +49,33 @@ impl FileSize {
         }
     }
 
-    fn to_bytes(&self) -> u64 {
-        match self {
-            FileSize::Bytes(bytes) => *bytes,
-            FileSize::Kilobytes(kb) => (kb * 1024.0) as u64,
-            FileSize::Megabytes(mb) => (mb * 1_048_576.0) as u64,
-            FileSize::Gigabytes(gb) => (gb * 1_073_741_824.0) as u64,
+    fn from_size_in_bytes(size: u64) -> FileSize {
+        match size {
+            0..1_024 => FileSize::Bytes(size),
+            1_024..1_048_576 => FileSize::Kilobytes(size as f64 / SizeUnit::Kilobytes.multiplier()),
+            1_048_576..1_073_741_824 => {
+                FileSize::Megabytes(size as f64 / SizeUnit::Megabytes.multiplier())
+            }
+            _ => FileSize::Gigabytes(size as f64 / SizeUnit::Gigabytes.multiplier()),
         }
     }
 
-    fn format_size(size: u64) -> String {
-        let filesize = match size {
-            0..1_024 => FileSize::Bytes(size),
-            1_024..1_048_576 => FileSize::Kilobytes(size as f64 / 1024.0),
-            1_048_576..1_073_741_824 => FileSize::Megabytes(size as f64 / 1_048_576.0),
-            _ => FileSize::Gigabytes(size as f64 / 1_073_741_824.0),
-        };
-        match filesize {
+    fn to_unit(&self, unit: &SizeUnit) -> FileSize {
+        let size_in_bytes = self.to_bytes();
+        FileSize::from_size_and_unit(size_in_bytes as f64 / unit.multiplier(), unit)
+    }
+
+    fn to_bytes(&self) -> u64 {
+        match self {
+            FileSize::Bytes(bytes) => *bytes,
+            FileSize::Kilobytes(kb) => (kb * SizeUnit::Kilobytes.multiplier()) as u64,
+            FileSize::Megabytes(mb) => (mb * SizeUnit::Megabytes.multiplier()) as u64,
+            FileSize::Gigabytes(gb) => (gb * SizeUnit::Gigabytes.multiplier()) as u64,
+        }
+    }
+
+    fn to_string(&self) -> String {
+        match self {
             FileSize::Bytes(bytes) => format!("{} bytes", bytes),
             FileSize::Kilobytes(kb) => format!("{:.2} KB", kb),
             FileSize::Megabytes(mb) => format!("{:.2} MB", mb),
@@ -76,9 +99,17 @@ fn main() {
     if let None = unit {
         print_error_and_exit(&format!("Unknown size unit: {}", args[2]), 1);
     }
-    let file_size = FileSize::from_size_and_unit(size.unwrap(), &unit.unwrap());
-    let file_size_in_bytes = file_size.to_bytes();
-    println!("{}", FileSize::format_size(file_size_in_bytes));
+    let size = size.unwrap();
+    let unit = unit.unwrap();
+    let file_size = FileSize::from_size_in_bytes(unit.to_bytes(size));
+    println!(
+        "{} ({}, {}, {}, {})",
+        file_size.to_string(),
+        file_size.to_unit(&SizeUnit::Bytes).to_string(),
+        file_size.to_unit(&SizeUnit::Kilobytes).to_string(),
+        file_size.to_unit(&SizeUnit::Megabytes).to_string(),
+        file_size.to_unit(&SizeUnit::Gigabytes).to_string()
+    );
 }
 
 fn print_usage_and_exit(args: &[String], exit_code: i32) -> ! {
