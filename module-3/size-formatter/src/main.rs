@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum SizeUnit {
     Bytes,
     Kilobytes,
@@ -29,34 +29,37 @@ impl SizeUnit {
     fn to_bytes(&self, size: f64) -> u64 {
         (size * self.multiplier()) as u64
     }
+
+    fn to_string(&self) -> &str {
+        match self {
+            SizeUnit::Bytes => "bytes",
+            SizeUnit::Kilobytes => "KB",
+            SizeUnit::Megabytes => "MB",
+            SizeUnit::Gigabytes => "GB",
+        }
+    }
 }
 
 #[derive(Debug)]
-enum FileSize {
-    Bytes(u64),
-    Kilobytes(f64),
-    Megabytes(f64),
-    Gigabytes(f64),
+struct FileSize {
+    size: f64,
+    unit: SizeUnit,
 }
 
 impl FileSize {
     fn from_size_and_unit(size: f64, unit: &SizeUnit) -> FileSize {
-        match unit {
-            SizeUnit::Bytes => FileSize::Bytes(size as u64),
-            SizeUnit::Kilobytes => FileSize::Kilobytes(size),
-            SizeUnit::Megabytes => FileSize::Megabytes(size),
-            SizeUnit::Gigabytes => FileSize::Gigabytes(size),
+        FileSize {
+            size: size,
+            unit: unit.clone(),
         }
     }
 
     fn from_size_in_bytes(size: u64) -> FileSize {
         match size {
-            0..1_024 => FileSize::Bytes(size),
-            1_024..1_048_576 => FileSize::Kilobytes(size as f64 / SizeUnit::Kilobytes.multiplier()),
-            1_048_576..1_073_741_824 => {
-                FileSize::Megabytes(size as f64 / SizeUnit::Megabytes.multiplier())
-            }
-            _ => FileSize::Gigabytes(size as f64 / SizeUnit::Gigabytes.multiplier()),
+            0..1_024 => FileSize::from_size_and_unit(size as f64, &SizeUnit::Bytes),
+            1_024..1_048_576 => FileSize::from_size_and_unit(size as f64 / SizeUnit::Kilobytes.multiplier(), &SizeUnit::Kilobytes),
+            1_048_576..1_073_741_824 => FileSize::from_size_and_unit(size as f64 / SizeUnit::Megabytes.multiplier(), &SizeUnit::Megabytes),
+            _ => FileSize::from_size_and_unit(size as f64 / SizeUnit::Gigabytes.multiplier(), &SizeUnit::Gigabytes),
         }
     }
 
@@ -66,21 +69,11 @@ impl FileSize {
     }
 
     fn to_bytes(&self) -> u64 {
-        match self {
-            FileSize::Bytes(bytes) => *bytes,
-            FileSize::Kilobytes(kb) => (kb * SizeUnit::Kilobytes.multiplier()) as u64,
-            FileSize::Megabytes(mb) => (mb * SizeUnit::Megabytes.multiplier()) as u64,
-            FileSize::Gigabytes(gb) => (gb * SizeUnit::Gigabytes.multiplier()) as u64,
-        }
+        self.unit.to_bytes(self.size)
     }
 
     fn to_string(&self) -> String {
-        match self {
-            FileSize::Bytes(bytes) => format!("{} bytes", bytes),
-            FileSize::Kilobytes(kb) => format!("{:.2} KB", kb),
-            FileSize::Megabytes(mb) => format!("{:.2} MB", mb),
-            FileSize::Gigabytes(gb) => format!("{:.2} GB", gb),
-        }
+        format!("{:.2} {}", self.size, self.unit.to_string())
     }
 }
 
